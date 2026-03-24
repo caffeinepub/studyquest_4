@@ -20,6 +20,7 @@ import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
   useGetCallerUserProfile,
   useGetFriendsCount,
+  useIsCallerAdmin,
 } from "../hooks/useQueries";
 
 const STATS_CONFIG = [
@@ -33,6 +34,7 @@ export default function DashboardPage() {
   const { identity } = useInternetIdentity();
   const navigate = useNavigate();
   const { data: profile, isLoading } = useGetCallerUserProfile();
+  const { data: isAdmin } = useIsCallerAdmin();
   const { data: friendsCount } = useGetFriendsCount(
     identity?.getPrincipal() ?? null,
   );
@@ -60,6 +62,29 @@ export default function DashboardPage() {
   }
 
   if (!profile) {
+    if (isAdmin) {
+      return (
+        <div
+          className="container py-20 text-center"
+          data-ocid="dashboard.panel"
+        >
+          <Shield className="h-16 w-16 text-primary mx-auto mb-4" />
+          <h2 className="font-display text-2xl font-bold mb-2">
+            Welcome, Admin!
+          </h2>
+          <p className="text-muted-foreground mb-6">
+            You don't need a membership to access the admin panel.
+          </p>
+          <Button
+            onClick={() => navigate({ to: "/admin" })}
+            data-ocid="dashboard.primary_button"
+          >
+            <Shield className="h-4 w-4 mr-2" />
+            Go to Admin Panel
+          </Button>
+        </div>
+      );
+    }
     return (
       <div className="container py-10 text-center">
         <p className="text-muted-foreground">

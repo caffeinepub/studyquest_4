@@ -14,11 +14,6 @@ export class ExternalBlob {
     static fromBytes(blob: Uint8Array<ArrayBuffer>): ExternalBlob;
     withUploadProgress(onProgress: (percentage: number) => void): ExternalBlob;
 }
-export interface TransformationOutput {
-    status: bigint;
-    body: Uint8Array;
-    headers: Array<http_header>;
-}
 export type Time = bigint;
 export interface GroupMessage {
     id: bigint;
@@ -36,34 +31,14 @@ export interface Book {
     author: string;
     category: string;
 }
-export interface http_header {
-    value: string;
-    name: string;
-}
-export interface http_request_result {
-    status: bigint;
-    body: Uint8Array;
-    headers: Array<http_header>;
-}
 export interface RegistrationInput {
     username: string;
     inviteCode: InviteCode;
 }
 export type UserId = Uint8Array;
 export type InviteCode = string;
-export interface ShoppingItem {
-    productName: string;
-    currency: string;
-    quantity: bigint;
-    priceInCents: bigint;
-    productDescription: string;
-}
 export type GroupId = bigint;
 export type MessageId = string;
-export interface TransformationInput {
-    context: Uint8Array;
-    response: http_request_result;
-}
 export interface Message {
     id: MessageId;
     content: string;
@@ -79,23 +54,14 @@ export interface QuizChallenge {
     challenger: UserId;
     opponent: UserId;
 }
-export type StripeSessionStatus = {
-    __kind__: "completed";
-    completed: {
-        userPrincipal?: string;
-        response: string;
-    };
-} | {
-    __kind__: "failed";
-    failed: {
-        error: string;
-    };
-};
-export interface StripeConfiguration {
-    allowedCountries: Array<string>;
-    secretKey: string;
-}
 export type BookId = string;
+export interface PaymentRequest {
+    userPrincipal: Principal;
+    username: string;
+    inviteCode: string;
+    submittedAt: Time;
+    status: { __kind__: "pending" } | { __kind__: "approved" } | { __kind__: "rejected" };
+}
 export interface UserProfile {
     status: Variant_active_banned;
     hasPaid: boolean;
@@ -116,11 +82,12 @@ export enum Variant_active_banned {
 }
 export interface backendInterface {
     acceptFriendRequest(sender: Principal): Promise<void>;
+    approvePayment(userPrincipal: Principal): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     banUser(user: Principal): Promise<void>;
     checkBookAccess(user: Principal): Promise<boolean>;
+    claimAdminWithPin(username: string, pin: string): Promise<boolean>;
     createBook(book: Book): Promise<void>;
-    createCheckoutSession(items: Array<ShoppingItem>, successUrl: string, cancelUrl: string): Promise<string>;
     createUserProfile(username: string): Promise<void>;
     deleteBook(bookId: string): Promise<void>;
     getAllBooks(): Promise<Array<Book>>;
@@ -133,19 +100,18 @@ export interface backendInterface {
     getHighestScoredChallenge(): Promise<QuizChallenge | null>;
     getLeaderboard(): Promise<Array<UserProfile>>;
     getPendingFriendRequests(user: Principal): Promise<Array<Principal>>;
+    getPendingPayments(): Promise<Array<PaymentRequest>>;
     getSentFriendRequests(user: Principal): Promise<Array<Principal>>;
-    getStripeSessionStatus(sessionId: string): Promise<StripeSessionStatus>;
     getUserMessages(userId: Principal): Promise<Array<Message>>;
     getUserProfile(user: Principal): Promise<UserProfile>;
     isCallerAdmin(): Promise<boolean>;
-    isStripeConfigured(): Promise<boolean>;
     markUserAsPaid(user: Principal): Promise<void>;
     registerWithInvite(input: RegistrationInput): Promise<void>;
+    rejectPayment(userPrincipal: Principal): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     sendFriendRequest(receiver: Principal): Promise<void>;
     sendGroupMessage(message: GroupMessage): Promise<bigint>;
     sendMessage(receiver: Principal, content: string): Promise<void>;
-    setStripeConfiguration(config: StripeConfiguration): Promise<void>;
-    transform(input: TransformationInput): Promise<TransformationOutput>;
+    submitPaymentRequest(username: string, inviteCode: string): Promise<void>;
     unbanUser(user: Principal): Promise<void>;
 }

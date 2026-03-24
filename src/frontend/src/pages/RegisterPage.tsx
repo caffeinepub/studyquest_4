@@ -8,36 +8,38 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Link } from "@tanstack/react-router";
-import { BookOpen, CreditCard, Loader2 } from "lucide-react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { BookOpen, Home, Loader2, QrCode } from "lucide-react";
 import { motion } from "motion/react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { useActor } from "../hooks/useActor";
-import { useInternetIdentity } from "../hooks/useInternetIdentity";
-import { useCreateCheckoutSession } from "../hooks/useQueries";
+import { useRegisterWithAccessCode } from "../hooks/useQueries";
 
 export default function RegisterPage() {
-  const { identity, login, loginStatus } = useInternetIdentity();
-  const { actor } = useActor();
-  const createCheckout = useCreateCheckoutSession();
+  const navigate = useNavigate();
+  const registerWithCode = useRegisterWithAccessCode();
   const [username, setUsername] = useState("");
   const [inviteCode, setInviteCode] = useState("");
-  const [step, setStep] = useState<"identity" | "details" | "paying">(
-    "identity",
-  );
-  const isLoggingIn = loginStatus === "logging-in";
+  const [step, setStep] = useState<"details" | "qr">("details");
 
-  const handleLogin = async () => {
-    try {
-      await login();
-      setStep("details");
-    } catch (err: any) {
-      toast.error(err?.message ?? "Login failed");
+  // Hidden bypass code state
+  const [logoTapCount, setLogoTapCount] = useState(0);
+  const [showBypassInput, setShowBypassInput] = useState(false);
+  const [bypassCode, setBypassCode] = useState("");
+  const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleLogoTap = () => {
+    const newCount = logoTapCount + 1;
+    setLogoTapCount(newCount);
+    if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
+    tapTimerRef.current = setTimeout(() => setLogoTapCount(0), 1500);
+    if (newCount >= 5) {
+      setLogoTapCount(0);
+      setShowBypassInput(true);
     }
   };
 
-  const handleProceedToPayment = async (e: React.FormEvent) => {
+  const handleProceedToQR = (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim()) {
       toast.error("Username is required");
@@ -47,30 +49,28 @@ export default function RegisterPage() {
       toast.error("Invite code is required");
       return;
     }
-    if (!actor) {
-      toast.error("Not connected. Please wait.");
+    setStep("qr");
+  };
+
+  const handleBypassRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!username.trim()) {
+      toast.error("Enter your username first");
       return;
     }
-
-    // Store pending registration details in sessionStorage for after payment
-    sessionStorage.setItem("pending_username", username.trim());
-    sessionStorage.setItem("pending_invite_code", inviteCode.trim());
-
-    setStep("paying");
+    if (!bypassCode.trim()) {
+      toast.error("Enter the access code");
+      return;
+    }
     try {
-      const session = await createCheckout.mutateAsync([
-        {
-          productName: "StudyQuest Membership",
-          currency: "inr",
-          quantity: 1n,
-          priceInCents: 2000n,
-          productDescription: "Lifetime membership",
-        },
-      ]);
-      window.location.href = session.url;
+      await registerWithCode.mutateAsync({
+        username: username.trim(),
+        code: bypassCode.trim(),
+      });
+      toast.success("Access granted! Welcome to StudyQuest.");
+      navigate({ to: "/dashboard" });
     } catch (err: any) {
-      toast.error(err?.message ?? "Failed to start payment");
-      setStep("details");
+      toast.error(err?.message ?? "Invalid access code");
     }
   };
 
@@ -85,39 +85,106 @@ export default function RegisterPage() {
         <Card className="shadow-card">
           <CardHeader className="text-center pb-6">
             <div className="flex justify-center mb-3">
-              <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+              <button
+                type="button"
+                className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center cursor-default select-none"
+                onClick={handleLogoTap}
+                tabIndex={-1}
+                aria-hidden="true"
+              >
                 <BookOpen className="h-7 w-7 text-primary" />
-              </div>
+              </button>
             </div>
             <CardTitle className="font-display text-2xl">
               Join StudyQuest
             </CardTitle>
             <CardDescription>
-              One-time membership — ₹20 via Stripe
+              One-time membership — ₹20 via PhonePe / UPI
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {!identity ? (
-              <div className="space-y-4">
-                <p className="text-sm text-muted-foreground text-center">
-                  First, create or connect your Internet Identity to get
-                  started.
-                </p>
+            {showBypassInput && (
+              <motion.form
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                onSubmit={handleBypassRegister}
+                className="space-y-3 mb-4 p-3 rounded-lg bg-muted/40 border border-border"
+              >
+                <div className="space-y-1">
+                  <Label
+                    htmlFor="bypass-username"
+                    className="text-xs text-muted-foreground"
+                  >
+                    Username
+                  </Label>
+                  <Input
+                    id="bypass-username"
+                    placeholder="Choose a username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Input
+                    type="password"
+                    placeholder="Access code"
+                    value={bypassCode}
+                    onChange={(e) => setBypassCode(e.target.value)}
+                    autoComplete="off"
+                  />
+                </div>
                 <Button
+                  type="submit"
+                  size="sm"
                   className="w-full"
-                  size="lg"
-                  onClick={handleLogin}
-                  disabled={isLoggingIn}
-                  data-ocid="register.primary_button"
+                  disabled={registerWithCode.isPending}
                 >
-                  {isLoggingIn ? (
+                  {registerWithCode.isPending ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Connecting...
+                      <Loader2 className="mr-2 h-3 w-3 animate-spin" />{" "}
+                      Joining...
                     </>
                   ) : (
-                    "Connect Internet Identity"
+                    "Join Now"
                   )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-xs"
+                  onClick={() => setShowBypassInput(false)}
+                >
+                  Cancel
+                </Button>
+              </motion.form>
+            )}
+
+            {step === "details" ? (
+              <form onSubmit={handleProceedToQR} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="username">Username</Label>
+                  <Input
+                    id="username"
+                    placeholder="Choose a unique username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    autoComplete="username"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="inviteCode">Invite Code</Label>
+                  <Input
+                    id="inviteCode"
+                    placeholder="Enter invite code from a member"
+                    value={inviteCode}
+                    onChange={(e) => setInviteCode(e.target.value)}
+                  />
+                </div>
+                <Button type="submit" className="w-full" size="lg">
+                  <QrCode className="mr-2 h-4 w-4" />
+                  Continue to Payment
                 </Button>
                 <p className="text-center text-sm text-muted-foreground">
                   Already a member?{" "}
@@ -128,60 +195,41 @@ export default function RegisterPage() {
                     Sign in
                   </Link>
                 </p>
-              </div>
-            ) : step === "paying" ? (
-              <div className="flex flex-col items-center gap-4 py-4">
-                <Loader2
-                  className="h-8 w-8 animate-spin text-primary"
-                  data-ocid="register.loading_state"
-                />
-                <p className="text-muted-foreground text-sm">
-                  Redirecting to payment...
-                </p>
-              </div>
+              </form>
             ) : (
-              <form onSubmit={handleProceedToPayment} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="username">Username</Label>
-                  <Input
-                    id="username"
-                    placeholder="Choose a unique username"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    autoComplete="username"
-                    data-ocid="register.input"
+              <div className="flex flex-col items-center gap-5">
+                <p className="text-sm text-center text-muted-foreground">
+                  Scan the QR code below and pay{" "}
+                  <span className="font-semibold text-foreground">₹20</span> via
+                  PhonePe or any UPI app.
+                </p>
+                <div className="rounded-2xl border-2 border-primary/20 p-3 bg-white shadow-md">
+                  <img
+                    src="/assets/uploads/accountqrcodeunion_bank_of_india_-_1866_dark_theme-019d1e6f-1a9e-76c1-8f9e-c571340aa2da-1.png"
+                    alt="PhonePe UPI QR Code"
+                    className="w-56 h-56 object-contain"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="inviteCode">Invite Code</Label>
-                  <Input
-                    id="inviteCode"
-                    placeholder="Enter invite code from a member"
-                    value={inviteCode}
-                    onChange={(e) => setInviteCode(e.target.value)}
-                    data-ocid="register.input"
-                  />
-                </div>
+                <p className="text-xs text-muted-foreground text-center">
+                  After paying, the admin will verify your payment and activate
+                  your account. Come back and log in once approved.
+                </p>
                 <Button
-                  type="submit"
                   className="w-full"
                   size="lg"
-                  disabled={createCheckout.isPending}
-                  data-ocid="register.submit_button"
+                  onClick={() => navigate({ to: "/" })}
                 >
-                  {createCheckout.isPending ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <CreditCard className="mr-2 h-4 w-4" />
-                      Pay ₹20 & Join
-                    </>
-                  )}
+                  <Home className="mr-2 h-4 w-4" />
+                  Go to Home
                 </Button>
-              </form>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setStep("details")}
+                >
+                  Back
+                </Button>
+              </div>
             )}
           </CardContent>
         </Card>

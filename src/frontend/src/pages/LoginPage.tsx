@@ -1,17 +1,7 @@
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { BookOpen, Loader2 } from "lucide-react";
 import { motion } from "motion/react";
-import { useState } from "react";
 import { toast } from "sonner";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 
@@ -30,34 +20,49 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-64px)] flex items-center justify-center py-12 px-4">
+    <div
+      className="min-h-screen flex items-center justify-center py-12 px-4 relative"
+      style={{
+        backgroundImage: "url('/assets/generated/login-bg.dim_1920x1080.jpg')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }}
+    >
+      {/* Dark overlay */}
+      <div className="absolute inset-0 bg-black/55" />
+
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-md"
+        transition={{ duration: 0.55 }}
+        className="relative z-10 w-full max-w-md"
       >
-        <Card className="shadow-card">
-          <CardHeader className="text-center pb-6">
-            <div className="flex justify-center mb-3">
-              <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
-                <BookOpen className="h-7 w-7 text-primary" />
-              </div>
+        <div className="rounded-2xl border border-white/20 bg-white/10 backdrop-blur-md p-8 shadow-2xl">
+          {/* Logo */}
+          <div className="flex justify-center mb-5">
+            <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/30">
+              <BookOpen className="h-8 w-8 text-white" />
             </div>
-            <CardTitle className="font-display text-2xl">
-              Welcome Back
-            </CardTitle>
-            <CardDescription>
-              Sign in to your StudyQuest account
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground text-center">
+          </div>
+
+          {/* Heading */}
+          <h1 className="text-center text-3xl font-bold text-white mb-1 tracking-tight">
+            Welcome Back
+          </h1>
+          <p className="text-center text-white/70 text-sm mb-8">
+            Sign in to your StudyQuest account
+          </p>
+
+          {/* Body */}
+          <div className="space-y-4">
+            <p className="text-sm text-white/60 text-center">
               StudyQuest uses Internet Identity for secure, password-free
               authentication.
             </p>
+
             <Button
-              className="w-full"
+              className="w-full bg-white text-gray-900 hover:bg-white/90 font-semibold"
               size="lg"
               onClick={handleLogin}
               disabled={isLoggingIn}
@@ -72,17 +77,28 @@ export default function LoginPage() {
                 "Sign In with Internet Identity"
               )}
             </Button>
-            <p className="text-center text-sm text-muted-foreground">
-              Don't have an account?{" "}
+
+            <p className="text-center text-sm text-white/70">
+              Don&apos;t have an account?{" "}
               <Link
                 to="/register"
-                className="text-primary hover:underline font-medium"
+                className="text-white hover:underline font-semibold"
               >
                 Join now
               </Link>
             </p>
-          </CardContent>
-        </Card>
+
+            <p className="text-center text-xs">
+              <Link
+                to="/admin-login"
+                className="text-white/50 hover:text-white transition-colors"
+                data-ocid="login.link"
+              >
+                Admin login
+              </Link>
+            </p>
+          </div>
+        </div>
       </motion.div>
     </div>
   );

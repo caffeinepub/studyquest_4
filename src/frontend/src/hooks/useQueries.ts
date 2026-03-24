@@ -1,7 +1,19 @@
 import type { Principal } from "@icp-sdk/core/principal";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Book, Message, ShoppingItem } from "../backend";
+import type { Book, Message } from "../backend";
 import { useActor } from "./useActor";
+
+// PaymentRequest type (new backend feature, defined locally until backend.ts is regenerated)
+export interface PaymentRequest {
+  userPrincipal: Principal;
+  username: string;
+  inviteCode: string;
+  submittedAt: bigint;
+  status:
+    | { __kind__: "pending" }
+    | { __kind__: "approved" }
+    | { __kind__: "rejected" };
+}
 
 export function useGetCallerUserProfile() {
   const { actor, isFetching: actorFetching } = useActor();
@@ -105,39 +117,89 @@ export function useGetPendingFriendRequests(user: Principal | null) {
   });
 }
 
-export function useIsStripeConfigured() {
+export function useGetPendingPayments() {
   const { actor, isFetching } = useActor();
-  return useQuery<boolean>({
-    queryKey: ["stripeConfigured"],
+  return useQuery<PaymentRequest[]>({
+    queryKey: ["pendingPayments"],
     queryFn: async () => {
-      if (!actor) return false;
-      return actor.isStripeConfigured();
+      if (!actor) return [];
+      return (actor as any).getPendingPayments() as Promise<PaymentRequest[]>;
     },
     enabled: !!actor && !isFetching,
   });
 }
 
-export type CheckoutSession = {
-  id: string;
-  url: string;
-};
-
-export function useCreateCheckoutSession() {
+export function useSubmitPaymentRequest() {
   const { actor } = useActor();
   return useMutation({
-    mutationFn: async (items: ShoppingItem[]): Promise<CheckoutSession> => {
+    mutationFn: async ({
+      username,
+      inviteCode,
+    }: { username: string; inviteCode: string }) => {
       if (!actor) throw new Error("Actor not available");
-      const baseUrl = `${window.location.protocol}//${window.location.host}`;
-      const successUrl = `${baseUrl}/payment-success?session_id={CHECKOUT_SESSION_ID}`;
-      const cancelUrl = `${baseUrl}/register`;
-      const result = await actor.createCheckoutSession(
-        items,
-        successUrl,
-        cancelUrl,
-      );
-      const session = JSON.parse(result) as CheckoutSession;
-      if (!session?.url) throw new Error("Stripe session missing url");
-      return session;
+      return (actor as any).submitPaymentRequest(
+        username,
+        inviteCode,
+      ) as Promise<void>;
+    },
+  });
+}
+
+export function useRegisterWithAccessCode() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      username,
+      code,
+    }: { username: string; code: string }) => {
+      if (!actor) throw new Error("Actor not available");
+      return (actor as any).registerWithAccessCode(
+        username,
+        code,
+      ) as Promise<void>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["currentUserProfile"] });
+    },
+  });
+}
+
+export function useAdminGenerateFreeCode() {
+  const { actor } = useActor();
+  return useMutation({
+    mutationFn: async () => {
+      if (!actor) throw new Error("Actor not available");
+      return (actor as any).adminGenerateFreeCode() as Promise<string>;
+    },
+  });
+}
+
+export function useApprovePayment() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (userPrincipal: Principal) => {
+      if (!actor) throw new Error("Actor not available");
+      return (actor as any).approvePayment(userPrincipal) as Promise<void>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["allUsers"] });
+      queryClient.invalidateQueries({ queryKey: ["pendingPayments"] });
+    },
+  });
+}
+
+export function useRejectPayment() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (userPrincipal: Principal) => {
+      if (!actor) throw new Error("Actor not available");
+      return (actor as any).rejectPayment(userPrincipal) as Promise<void>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pendingPayments"] });
     },
   });
 }
@@ -240,23 +302,6 @@ export function useCreateBook() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["allBooks"] });
-    },
-  });
-}
-
-export function useSetStripeConfiguration() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (config: {
-      secretKey: string;
-      allowedCountries: string[];
-    }) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.setStripeConfiguration(config);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["stripeConfigured"] });
     },
   });
 }

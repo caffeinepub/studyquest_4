@@ -16,12 +16,13 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
-import { useGetCallerUserProfile } from "../hooks/useQueries";
+import { useGetCallerUserProfile, useIsCallerAdmin } from "../hooks/useQueries";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { identity, clear } = useInternetIdentity();
   const queryClient = useQueryClient();
   const { data: profile } = useGetCallerUserProfile();
+  const { data: isAdmin } = useIsCallerAdmin();
   const isAuthenticated = !!identity;
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -64,7 +65,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 {label}
               </Link>
             ))}
-            {profile && (
+            {(profile || isAdmin) && (
               <Link
                 to="/admin"
                 className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"

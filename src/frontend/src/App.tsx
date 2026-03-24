@@ -7,6 +7,7 @@ import {
   createRouter,
 } from "@tanstack/react-router";
 import Layout from "./components/Layout";
+import AdminLoginPage from "./pages/AdminLoginPage";
 import AdminPage from "./pages/AdminPage";
 import BooksPage from "./pages/BooksPage";
 import DashboardPage from "./pages/DashboardPage";
@@ -15,7 +16,7 @@ import LandingPage from "./pages/LandingPage";
 import LeaderboardPage from "./pages/LeaderboardPage";
 import LoginPage from "./pages/LoginPage";
 import MessagesPage from "./pages/MessagesPage";
-import PaymentSuccessPage from "./pages/PaymentSuccessPage";
+import PaymentPendingPage from "./pages/PaymentPendingPage";
 import RegisterPage from "./pages/RegisterPage";
 
 const rootRoute = createRootRoute({
@@ -38,16 +39,29 @@ const loginRoute = createRoute({
   component: LoginPage,
 });
 
+const adminLoginRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/admin-login",
+  component: AdminLoginPage,
+});
+
 const registerRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/register",
   component: RegisterPage,
 });
 
+const paymentPendingRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/payment-pending",
+  component: PaymentPendingPage,
+});
+
+// Keep old route for backward compatibility
 const paymentSuccessRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/payment-success",
-  component: PaymentSuccessPage,
+  component: PaymentPendingPage,
 });
 
 const dashboardRoute = createRoute({
@@ -89,7 +103,9 @@ const adminRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   indexRoute,
   loginRoute,
+  adminLoginRoute,
   registerRoute,
+  paymentPendingRoute,
   paymentSuccessRoute,
   dashboardRoute,
   booksRoute,
